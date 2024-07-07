@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request
 import os
 from werkzeug.utils import secure_filename
@@ -18,7 +17,9 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 # Load your pre-trained model
-model = tf.keras.models.load_model('C:/Users/salman.nishan/Documents/Personal/Banpu_5/test_8.h5')
+model = tf.keras.models.load_model(
+    "/media/ailama/HDD Storage1/users/ailama/Banpu/test_8.h5"
+)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -27,11 +28,11 @@ def preprocess_image(image_path):
     img = Image.open(image_path)
     img = img.resize((150, 150))
     img = np.array(img)
-    
+
     # Ensure that the image has three channels (for RGB images)
     if img.shape[-1] != 3:
         img = img[:, :, :3]  # Keep only the first three channels
-    
+
     img = img / 255.0  # Normalize the image
     img = np.expand_dims(img, axis=0)  # Add batch dimension
     return img
