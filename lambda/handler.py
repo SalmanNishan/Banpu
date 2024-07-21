@@ -1,3 +1,4 @@
+import os
 import io
 import json
 import boto3
@@ -9,7 +10,7 @@ s3_client = boto3.client("s3")
 sagemaker_runtime = boto3.client("sagemaker-runtime")
 
 # SageMaker endpoint name
-ENDPOINT_NAME = "tensorflow-inference-2024-07-11-09-00-17-984"
+ENDPOINT_NAME = os.getenv("ENDPOINT_NAME")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
 
