@@ -1,8 +1,8 @@
-import boto3
-import json
 import io
-import urllib.parse
+import json
+import boto3
 import numpy as np
+import urllib.parse
 from PIL import Image
 
 s3_client = boto3.client("s3")
@@ -27,20 +27,20 @@ def preprocess_image(image_content):
     return img
 
 
-def lambda_handler(event, context):
-    # Get the bucket name and key for the uploaded S3 object
-    bucket = event["Records"][0]["s3"]["bucket"]["name"]
+def make_prediction(bucket_name, image_key):
+    # Check if the file extension is allowed
+    extension = image_key.rsplit(".", 1)[1].lower()
 
-    key = urllib.parse.unquote_plus(
-        event["Records"][0]["s3"]["object"]["key"], encoding="utf-8"
-    )
-
-    extension = key.rsplit(".", 1)[1].lower()
     if extension not in ALLOWED_EXTENSIONS:
-        return {"statusCode": 400, "body": json.dumps("Invalid file type")}
+        return {
+            "bucket": bucket_name,
+            "file": image_key,
+            "label": "INVALID FILE TYPE",
+            "score": 0,
+        }
 
     # Retrieve the uploaded file content
-    response = s3_client.get_object(Bucket=bucket, Key=key)
+    response = s3_client.get_object(Bucket=bucket_name, Key=image_key)
     file_data = response["Body"].read()
     image_content = io.BytesIO(file_data)
     input_data = preprocess_image(image_content)
@@ -48,13 +48,26 @@ def lambda_handler(event, context):
     # Send the file content to the SageMaker endpoint for prediction
     response = sagemaker_runtime.invoke_endpoint(
         EndpointName=ENDPOINT_NAME,
-        ContentType="image/" + extension,
-        Body=input_data.tobytes(),
+        ContentType="application/json",
+        Body=json.dumps(input_data.tolist()).encode(),
     )
 
     # Process the prediction result
-    result = json.loads(response["Body"].read().decode())
+    response_body = json.loads(response["Body"].read().decode())
+    result = response_body["predictions"][0][0]
     label = "GOOD WELD" if result > 0.8 else "BAD WELD"
-    print("Prediction result:", label)
 
-    return {"statusCode": 200, "body": json.dumps("Prediction completed successfully!")}
+    return {"bucket": bucket_name, "file": image_key, "label": label, "score": result}
+
+
+def lambda_handler(event, context):
+    results = []
+
+    for record in event["Records"]:
+        bucket = record["s3"]["bucket"]["name"]
+        key = urllib.parse.unquote_plus(record["s3"]["object"]["key"], encoding="utf-8")
+        result = make_prediction(bucket, key)
+        results.append(result)
+
+    print(results)
+    return {"statusCode": 200, "body": json.dumps(results)}
